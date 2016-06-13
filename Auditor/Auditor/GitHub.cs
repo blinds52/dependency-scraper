@@ -49,14 +49,9 @@ namespace Auditor
 
                 Console.WriteLine("Processing: {0}, found {1} results",repo.FullName, totalResults );
 
-                foreach (var item in result.Items)
+                foreach (var dependencyInfo in result.Items.Select(item => new {item, content = GetBlob(item)}).SelectMany(t => ParsePackageDependencies(t.content, t.item)))
                 {
-                    var content = GetBlob(item);
-
-                    foreach (var dependencyInfo in ParsePackageDependencies(content, item))
-                    {
-                        yield return dependencyInfo;
-                    }
+                    yield return dependencyInfo;
                 }
             } while (currentPage * ResultsPerPage <= totalResults);
         }
@@ -78,8 +73,9 @@ namespace Auditor
             {
                 var packageId = package.Attributes(XName.Get("id")).FirstOrDefault()?.Value;
                 var version = package.Attributes(XName.Get("version")).FirstOrDefault()?.Value;
+                var allowedVersions = package.Attributes(XName.Get("allowedVersions")).FirstOrDefault()?.Value;
 
-                yield return new DependencyInfo(item.Repository.FullName, packageId, version);
+                yield return new DependencyInfo(item.Repository.FullName, packageId, version, allowedVersions);
             }
         }
 
