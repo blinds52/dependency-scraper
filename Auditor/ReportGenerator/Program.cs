@@ -19,7 +19,7 @@ namespace ReportGenerator
             var packageRepository = PackageRepository.Create(filename);
 
             // Map repositories to products and create a product view
-            Dictionary<string,List<string>> productToRepos = new Dictionary<string, List<string>>
+            var productToRepos = new Dictionary<string, List<string>>
             {
                 { "SQL Prompt", new List<string> { "red-gate/SQLPrompt"} },
                 { "SQL Compare", new List<string> { "red-gate/SQLCompareEngine", "red-gate/SQLCompareUIs" } },
@@ -47,7 +47,6 @@ namespace ReportGenerator
                     foreach (var dependency in packageRepository.GetDependencies(productToRepos[product]).Distinct())
                     {
                         var latestVersion = packageRepository.GetMaxVersion(dependency);
-
 
                         Version currentVersion;
                         if (Version.TryParse(dependency.Version, out currentVersion))
