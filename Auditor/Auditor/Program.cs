@@ -1,8 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Xml;
-using System.Xml.XPath;
-using NuGet;
 using Octokit;
 using Octokit.Internal;
 
