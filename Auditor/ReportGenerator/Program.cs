@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using LINQtoCSV;
 
 namespace ReportGenerator
 {
@@ -44,7 +42,7 @@ namespace ReportGenerator
             }
 
             var packageInputFile = args[0];
-            var outputFile = args[2];
+            var outputFile = args[1];
 
             var staleDependencyAnalyser = new StaleDependencyAnalyser(PackageRepository.Create(packageInputFile), ProductsToRepos());
 
