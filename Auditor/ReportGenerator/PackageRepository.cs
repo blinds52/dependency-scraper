@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using LINQtoCSV;
@@ -29,9 +30,9 @@ namespace ReportGenerator
             return new PackageRepository(dependencyInfos);
         }
 
-        public IEnumerable<DependencyInfo> GetDependencies(List<string> productToRepo)
+        public IEnumerable<DependencyInfo> GetDependencies(List<string> repositories)
         {
-            return _dependencyInfos.Where(x => productToRepo.Contains(x.RepoName));
+            return _dependencyInfos.Where(x => repositories.Any(y => String.Equals(x.RepoName, y, StringComparison.InvariantCultureIgnoreCase)));
         }
 
         public Version GetMaxVersion(DependencyInfo dependency)
