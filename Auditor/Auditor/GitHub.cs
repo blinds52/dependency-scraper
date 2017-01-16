@@ -11,6 +11,7 @@ namespace Auditor
 {
     public class GitHub
     {
+        private const int c_MillisecondsTimeout = 2000;
         private readonly GitHubClient _gitHubClient;
 
         private static readonly int ResultsPerPage = 100;
@@ -79,6 +80,22 @@ namespace Auditor
             }
         }
 
+        private static string ParseNuSpecs(string content, SearchCode item)
+        {
+            XDocument xdoc = null;
+            try
+            {
+                xdoc = XDocument.Parse(content);
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine("Failed to parse nuspec at {0} because of {1}", item.Path, ex);
+                return null;
+            }
+
+            return xdoc.Descendants(XName.Get("id")).FirstOrDefault()?.Value;            
+        }
+
         private string GetBlob(SearchCode item)
         {
             CheckRateLimit();
@@ -93,9 +110,24 @@ namespace Auditor
             var repositoryCollection = new RepositoryCollection {repo.Owner.Login + "/" + repo.Name};
 
             // Search API is rate limited by something unknown to OctoKit.net (see https://developer.github.com/v3/rate_limit/)
-            Thread.Sleep(2000);
+            Thread.Sleep(c_MillisecondsTimeout);
 
             return _gitHubClient.Search.SearchCode(new SearchCodeRequest("filename:packages.config")
+            {
+                PerPage = ResultsPerPage,
+                Page = page,
+                Repos = repositoryCollection
+            }).Result;
+        }
+
+        private SearchCodeResult FindNuSpecInRepo(Repository repo, int page)
+        {
+            var repositoryCollection = new RepositoryCollection { repo.Owner.Login + "/" + repo.Name };
+
+            // Search API is rate limited by something unknown to OctoKit.net (see https://developer.github.com/v3/rate_limit/)
+            Thread.Sleep(c_MillisecondsTimeout);
+
+            return _gitHubClient.Search.SearchCode(new SearchCodeRequest("filename:*.nuspec")
             {
                 PerPage = ResultsPerPage,
                 Page = page,
