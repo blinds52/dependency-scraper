@@ -57,6 +57,28 @@ namespace Auditor
             } while (currentPage * ResultsPerPage <= totalResults);
         }
 
+        private IEnumerable<string> FindRepoArtifacts(Repository repo)
+        {
+            int currentPage = 0;
+            int totalResults;
+            do
+            {
+                var result = FindPackagesConfigInRepo(repo, currentPage++);
+                totalResults = result.TotalCount;
+                if (result.IncompleteResults)
+                {
+                    Console.Error.WriteLine("Failed to retrieve complete search results, continuing anyway since something is better than nothing.");
+                }
+
+                Console.WriteLine("Processing: {0}, found {1} results", repo.FullName, totalResults);
+
+                foreach (var publishedArtifact in result.Items.Select(item => new { item, content = GetBlob(item) }).Select(t => ParseNuSpecs(t.content, t.item)))
+                {
+                    yield return publishedArtifact;
+                }
+            } while (currentPage * ResultsPerPage <= totalResults);
+        }
+
         private static IEnumerable<DependencyInfo> ParsePackageDependencies(string content, SearchCode item)
         {
             XDocument xdoc = null;
