@@ -28,7 +28,7 @@ namespace Auditor
                     sw.WriteLine("Repository Name, Package Id, Version, Allowed Versions");
                     foreach (var dependency in client.EnumerateDependenciesForOrganization(organization))
                     {
-                        sw.WriteLine("{0},{1},{2},{3}", dependency.RepositoryName, dependency.PackageId, dependency.Version, dependency.AllowedVersions);
+                        sw.WriteLine("{0},{1},{2},{3},{4}", dependency.RepositoryName, dependency.PackageId, dependency.Version, dependency.AllowedVersions, dependency.ItemPath);
                     }
                 }
             }

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 using Octokit;
 
@@ -50,11 +49,19 @@ namespace Auditor
 
                 Console.WriteLine("Processing: {0}, found {1} results",repo.FullName, totalResults );
 
-                foreach (var dependencyInfo in result.Items.Select(item => new {item, content = GetBlob(item)}).SelectMany(t => ParsePackageDependencies(t.content, t.item)))
+                var removeGlobalPackageConfig = result.Items.Where(x => !ProtectedFile(x));
+                var packagesConfigBlobs = removeGlobalPackageConfig.Select(item => new {item, content = GetBlob(item)});
+
+                foreach (var dependencyInfo in packagesConfigBlobs.SelectMany(t => ParsePackageDependencies(t.content, t.item)))
                 {
                     yield return dependencyInfo;
                 }
             } while (currentPage * ResultsPerPage <= totalResults);
+        }
+
+        private bool ProtectedFile(SearchCode arg)
+        {
+            return arg.Path.StartsWith(".");
         }
 
         private IEnumerable<string> FindRepoArtifacts(Repository repo)
@@ -98,7 +105,7 @@ namespace Auditor
                 var version = package.Attributes(XName.Get("version")).FirstOrDefault()?.Value;
                 var allowedVersions = package.Attributes(XName.Get("allowedVersions")).FirstOrDefault()?.Value;
 
-                yield return new DependencyInfo(item.Repository.FullName, packageId, version, allowedVersions);
+                yield return new DependencyInfo(item.Repository.FullName, packageId, version, allowedVersions, item.Path);
             }
         }
 
