@@ -1,25 +1,16 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ReportGenerator
 {
     class Program
     {
-        static void Main(string[] args)
-        {
-            var filename = args[0];
 
-            // Read in the CSV and create the master list of Redgate.*
-            var packageRepository = PackageRepository.Create(filename);
-
-            // Map repositories to products and create a product view
-            Dictionary<string,List<string>> productToRepos = new Dictionary<string, List<string>>
+        // TODO read in this from a file!
+        private static Dictionary<string, List<string>> ProductsToRepos()
+        {            
+            var productToRepos = new Dictionary<string, List<string>>
             {
                 { "SQL Prompt", new List<string> { "red-gate/SQLPrompt"} },
                 { "SQL Compare", new List<string> { "red-gate/SQLCompareEngine", "red-gate/SQLCompareUIs" } },
@@ -39,30 +30,28 @@ namespace ReportGenerator
                 { "SQL Search", new List<string> { "red-gate/sqlsearch" }}
             };
 
-            using (var f = new StreamWriter(File.OpenWrite("report.csv")))
+            return productToRepos;
+        }
+
+        static void Main(string[] args)
+        {
+            if (args.Length != 2)
             {
-                f.WriteLine("{0},{1},{2},{3},{4}", "Product", "PackageID", "Current Version","Latest Version", "Difference");
-                foreach (var product in productToRepos.Keys)
+                Console.Out.WriteLine("Usage: <list of dependencies>  <outputFile");
+                return;
+            }
+
+            var packageInputFile = args[0];
+            var outputFile = args[1];
+
+            var staleDependencyAnalyser = new StaleDependencyAnalyser(PackageRepository.Create(packageInputFile), ProductsToRepos());
+
+            using (var output = new StreamWriter(File.OpenWrite(outputFile)))
+            {
+                output.WriteLine("{0},{1},{2},{3},{4}", "Product", "PackageID", "Current Version","Latest Version", "Difference");
+                foreach (var x in staleDependencyAnalyser.StaleDependencies())
                 {
-                    foreach (var dependency in packageRepository.GetDependencies(productToRepos[product]).Distinct())
-                    {
-                        var latestVersion = packageRepository.GetMaxVersion(dependency);
-
-
-                        Version currentVersion;
-                        if (Version.TryParse(dependency.Version, out currentVersion))
-                        {
-                            if (currentVersion < latestVersion)
-                            {
-                                f.WriteLine("{0},{1},{2},{3},{4}", product, dependency.PackageID, currentVersion,
-                                    latestVersion, VersionDifference(latestVersion,currentVersion));
-                            }
-                        }
-                        else
-                        {
-                            Console.Error.WriteLine("Warning: Failed to parse {0}", dependency.Version);
-                        }
-                    }
+                    output.WriteLine("{0},{1},{2},{3},{4}", x.Product, x.PackageId, x.CurrentVersion,x.LatestVersion, VersionDifference(x.LatestVersion, x.CurrentVersion));
                 }
             }
         }
@@ -81,4 +70,5 @@ namespace ReportGenerator
 
             return "";
         }
-    }}
+    }
+}

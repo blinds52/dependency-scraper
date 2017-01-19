@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 using Octokit;
 
@@ -11,6 +10,7 @@ namespace Auditor
 {
     public class GitHub
     {
+        private const int c_MillisecondsTimeout = 2000;
         private readonly GitHubClient _gitHubClient;
 
         private static readonly int ResultsPerPage = 100;
@@ -49,9 +49,39 @@ namespace Auditor
 
                 Console.WriteLine("Processing: {0}, found {1} results",repo.FullName, totalResults );
 
-                foreach (var dependencyInfo in result.Items.Select(item => new {item, content = GetBlob(item)}).SelectMany(t => ParsePackageDependencies(t.content, t.item)))
+                var removeGlobalPackageConfig = result.Items.Where(x => !ProtectedFile(x));
+                var packagesConfigBlobs = removeGlobalPackageConfig.Select(item => new {item, content = GetBlob(item)});
+
+                foreach (var dependencyInfo in packagesConfigBlobs.SelectMany(t => ParsePackageDependencies(t.content, t.item)))
                 {
                     yield return dependencyInfo;
+                }
+            } while (currentPage * ResultsPerPage <= totalResults);
+        }
+
+        private bool ProtectedFile(SearchCode arg)
+        {
+            return arg.Path.StartsWith(".");
+        }
+
+        private IEnumerable<string> FindRepoArtifacts(Repository repo)
+        {
+            int currentPage = 0;
+            int totalResults;
+            do
+            {
+                var result = FindPackagesConfigInRepo(repo, currentPage++);
+                totalResults = result.TotalCount;
+                if (result.IncompleteResults)
+                {
+                    Console.Error.WriteLine("Failed to retrieve complete search results, continuing anyway since something is better than nothing.");
+                }
+
+                Console.WriteLine("Processing: {0}, found {1} results", repo.FullName, totalResults);
+
+                foreach (var publishedArtifact in result.Items.Select(item => new { item, content = GetBlob(item) }).Select(t => ParseNuSpecs(t.content, t.item)))
+                {
+                    yield return publishedArtifact;
                 }
             } while (currentPage * ResultsPerPage <= totalResults);
         }
@@ -75,8 +105,24 @@ namespace Auditor
                 var version = package.Attributes(XName.Get("version")).FirstOrDefault()?.Value;
                 var allowedVersions = package.Attributes(XName.Get("allowedVersions")).FirstOrDefault()?.Value;
 
-                yield return new DependencyInfo(item.Repository.FullName, packageId, version, allowedVersions);
+                yield return new DependencyInfo(item.Repository.FullName, packageId, version, allowedVersions, item.Path);
             }
+        }
+
+        private static string ParseNuSpecs(string content, SearchCode item)
+        {
+            XDocument xdoc = null;
+            try
+            {
+                xdoc = XDocument.Parse(content);
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine("Failed to parse nuspec at {0} because of {1}", item.Path, ex);
+                return null;
+            }
+
+            return xdoc.Descendants(XName.Get("id")).FirstOrDefault()?.Value;            
         }
 
         private string GetBlob(SearchCode item)
@@ -93,9 +139,24 @@ namespace Auditor
             var repositoryCollection = new RepositoryCollection {repo.Owner.Login + "/" + repo.Name};
 
             // Search API is rate limited by something unknown to OctoKit.net (see https://developer.github.com/v3/rate_limit/)
-            Thread.Sleep(2000);
+            Thread.Sleep(c_MillisecondsTimeout);
 
             return _gitHubClient.Search.SearchCode(new SearchCodeRequest("filename:packages.config")
+            {
+                PerPage = ResultsPerPage,
+                Page = page,
+                Repos = repositoryCollection
+            }).Result;
+        }
+
+        private SearchCodeResult FindNuSpecInRepo(Repository repo, int page)
+        {
+            var repositoryCollection = new RepositoryCollection { repo.Owner.Login + "/" + repo.Name };
+
+            // Search API is rate limited by something unknown to OctoKit.net (see https://developer.github.com/v3/rate_limit/)
+            Thread.Sleep(c_MillisecondsTimeout);
+
+            return _gitHubClient.Search.SearchCode(new SearchCodeRequest("filename:*.nuspec")
             {
                 PerPage = ResultsPerPage,
                 Page = page,

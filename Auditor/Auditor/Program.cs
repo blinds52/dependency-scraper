@@ -1,8 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Xml;
-using System.Xml.XPath;
-using NuGet;
 using Octokit;
 using Octokit.Internal;
 
@@ -31,7 +28,7 @@ namespace Auditor
                     sw.WriteLine("Repository Name, Package Id, Version, Allowed Versions");
                     foreach (var dependency in client.EnumerateDependenciesForOrganization(organization))
                     {
-                        sw.WriteLine("{0},{1},{2},{3}", dependency.RepositoryName, dependency.PackageId, dependency.Version, dependency.AllowedVersions);
+                        sw.WriteLine("{0},{1},{2},{3},{4}", dependency.RepositoryName, dependency.PackageId, dependency.Version, dependency.AllowedVersions, dependency.ItemPath);
                     }
                 }
             }
